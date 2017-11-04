@@ -14,4 +14,8 @@ public class ParseResult {
     public void addRow(Map<String, String> row){
         mResult.add(row);
     }
+
+    public void clear(){
+        mResult.clear();
+    }
 }

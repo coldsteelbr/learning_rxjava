@@ -12,6 +12,7 @@ public class Main {
 
         h.parse();
 
+        h.parseMany();
 
         System.out.println("========= MAIN FINISHED =========");
     }

@@ -53,12 +53,11 @@ public class RegExParser implements ICommonParser {
         return Single.create(emitter -> {
 
             Matcher m = mPattern.matcher(mSource);
-
+            mResultTable.clear();
+            // TODO: REMOVE SLEEPING
             SECONDS.sleep(3);
 
             while (m.find()) {
-                int gCount = m.groupCount();
-                System.out.println(gCount);
                 Map<String, String> currentResultRow = new HashMap<>();
                 for (String currentName : mGroupNames) {
                     currentResultRow.put(currentName, m.group(currentName));
@@ -68,12 +67,18 @@ public class RegExParser implements ICommonParser {
 
             emitter.onSuccess(mResultTable);
 
-
         });
     }
 
     @Override
     public Single<ParseResult> parse() {
+
+        if(mGroupNames == null)
+            return Single.error(new Exception("Matching names are not set"));
+
+        if(mGroupNames.size() == 0)
+            return Single.error(new Exception("Matching names count is 0 (zero)"));
+
 
         return getResult();
 

@@ -1,10 +1,14 @@
 package ru.romanbrazhnikov.app;
 
-import io.reactivex.*;
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
 import ru.romanbrazhnikov.parser.ICommonParser;
 import ru.romanbrazhnikov.parser.RegExParser;
+import ru.romanbrazhnikov.sourceprovider.SourceProvider;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +16,17 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class Hello {
+    private final String mPattern
+            = "<td[^>]*>\\s*(?<LEFT>.*?)\\s*</td>\\s*"
+            + "<td[^>]*>\\s*(?<RIGHT>.*?)\\s*</td>\\s*";
+
+    private List<String> mNames = new ArrayList<>();
+
+    public Hello() {
+        mNames.add("LEFT");
+        mNames.add("RIGHT");
+    }
+
     public void hello(String... names) {
         Observable.fromArray(names)
                 .subscribe(s -> System.out.println("Hello, " + s));
@@ -67,8 +82,7 @@ public class Hello {
 
 
     public void parse() {
-        String pattern = "<td[^>]*>\\s*(?<LEFT>.*?)\\s*</td>\\s*"
-                + "<td[^>]*>\\s*(?<RIGHT>.*?)\\s*</td>\\s*";
+
         String source =
                 "<table>" +
                         "<tr>" +
@@ -80,36 +94,63 @@ public class Hello {
                         "<td>Bottom right</td>" +
                         "</tr>" +
                         "</table>";
-        List<String> names = new ArrayList<>();
-        names.add("LEFT");
-        names.add("RIGHT");
-        //names.add("fefre");
 
 
         ICommonParser parser = new RegExParser();
 
         parser.setSource(source);
-        parser.setPattern(pattern);
-        parser.setMatchNames(names);
+        parser.setPattern(mPattern);
+        parser.setMatchNames(mNames);
 
         parser.parse()
                 //.subscribeOn(Schedulers.io())
                 .observeOn(Schedulers.newThread())
-                .timeout(5, TimeUnit.SECONDS)
-
+                .timeout(60, TimeUnit.SECONDS) // MAX time to wait for parser's job finished
                 .subscribe(
-                parseResult -> {
-                    List<Map<String, String>> res = parseResult.getResult();
-                    for (Map<String, String> curRow : res) {
-                        for (Map.Entry entry : curRow.entrySet()) {
-                            System.out.print(entry + " ");
-                        }
-                        System.out.println();
-                    }
-                },
-                System.out::println);
+                        parseResult -> {
+                            List<Map<String, String>> res = parseResult.getResult();
+                            for (Map<String, String> curRow : res) {
+                                for (Map.Entry entry : curRow.entrySet()) {
+                                    System.out.print(entry + " ");
+                                }
+                                System.out.println();
+                            }
+                        },
+                        System.out::println);
 
 
         System.out.println("========= HELLO FINISHED =========");
+    }
+
+    public void parseMany() {
+        SourceProvider provider = new SourceProvider();
+
+
+        ICommonParser parser = new RegExParser();
+
+        parser.setPattern(mPattern);
+        parser.setMatchNames(mNames);
+
+        while (provider.hasMore()) {
+
+            provider.requestNext()
+                    .timeout(10, TimeUnit.SECONDS)
+                    .subscribe(
+                            s -> {
+                                // TODO: request parser from a parser pool
+                                parser.setSource(s);
+                                parser.parse().subscribe(parseResult -> {
+                                    List<Map<String, String>> res = parseResult.getResult();
+                                    System.out.println("Page:");
+                                    for (Map<String, String> curRow : res) {
+                                        for (Map.Entry entry : curRow.entrySet()) {
+                                            System.out.print(entry + " ");
+                                        }
+                                        System.out.println();
+                                    }
+                                }, System.out::println);
+                            }, System.out::println);
+
+        }
     }
 }
